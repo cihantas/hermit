@@ -1,3 +1,5 @@
+; TODO: Decide order of (... sender msg) arguments and stay consistent.
+
 #lang racket
 
 (require racket/tcp
@@ -29,15 +31,13 @@
   ERR_NEEDMOREPARAMS "461")
 
 ; A channel represents an IRC channel and
-
 (define channel%
   (class object%
-    (super-new)
     (init init-name)
+    (super-new)
     (field [users (list)])))
 
 ; A user encapsul
-
 (define user%
   (class object%
     (init output-port)
@@ -47,9 +47,8 @@
            [username #f]
            [realname #f])))
 
-
 (define channels (make-hash))
-(define users '())
+(define users (list))
 
 ; TODO: Replace this with proper logging.
 (define (log-debug str)
@@ -61,7 +60,7 @@
 (define (start)
   (define main-cust (make-custodian))
   (parameterize ([current-custodian main-cust])
-    (define listener (tcp-listen PORT 5 #t))
+    (define listener (tcp-listen PORT 5 #t "0.0.0.0"))
     (log-debug (format "Listening on ~a." PORT))
 
     ; Handle incoming connections on a new thread.
@@ -86,14 +85,13 @@
     ; Instantiate a user for the connected client.
     (define user (new user% [output-port out]))
     ; TODO: Maybe only add user after USER command.
-    (append users user)
+    (set! users (append users (list user)))
 
     (define (loop)
       (let* ([msg-str (read-line in 'return-linefeed)]
              [msg (parse-msg msg-str)])
         (log-debug (string-append "< " msg-str))
         (dispatch-msg msg user))
-
 
       #|
       THIS IS NOT WORKING, BUT NEEDED, FIX!
@@ -110,7 +108,18 @@
     (case cmd
       [("NICK") (NICK sender msg)]
       [("USER") (USER sender msg)]
+      [("JOIN") (JOIN sender msg)]
+      [("PART") (PART sender msg)]
+      [("PRIVMSG") (PRIVMSG sender msg)]
       [("PING") (PING sender msg)])))
+
+(define (broadcast-msg-to-chan msg channel-name #:exclude-users [excludes '()])
+  (let* ([chan (hash-ref channels channel-name)]
+         [usrs (get-field users chan)])
+    (for-each (λ (cu)
+                 (when (not (member (get-field nick cu) excludes))
+                   (send-msg msg cu)))
+              usrs)))
 
 (define (send-msg msg sender)
   (let ([rpl (string-append (msg-to-str msg) "\r\n")])
@@ -132,10 +141,15 @@
          [y (append (string-split (car x) " ") (cdr x))])
     (if (string-prefix? (car y) ":") (rest y) y)))
 
-;
+; Converts a list to a valid IRC message string. The last parameter is prefixed
+; with a <colon>, if it contains spaces or begins with a <colon>. Latter is
+; required to support text that begins with a <colon>, like smileys.
 (define (msg-to-str msg)
-  (string-join msg " " #:before-last
-               (if (string-contains? (last msg) " ") " :" " ")))
+  (string-join msg " "
+               #:before-first ":"
+               #:before-last (if (or (string-contains? (last msg) " ")
+                                     (string-prefix? (last msg) ":"))
+                               " :" " ")))
 
 (define (PING sender msg)
   (send-msg (list "PONG" (second msg) "localhost") sender))
@@ -149,19 +163,56 @@
   ; TODO: Check nick against grammar and uniqueness.
   (cond
     [(> (string-length nick) 9)
-     (send-msg (list ERR_ERRONEUSNICKNAME nick ":Erroneous nickname") sender)]))
+     (send-msg (list ERR_ERRONEUSNICKNAME nick ":Erroneous nickname") sender)]
+
+    [else (set-field! nick sender nick)]))
 
 (define (USER sender msg)
   (match-define (list user host server name) (rest msg))
-  (send-msg (list ":localhost" RPL_WELCOME "ctas" "Welcome to the Racket IRC server ctas!ctas@localhost.") sender)
-  (send-msg (list ":localhost" RPL_YOURHOST "ctas" (format "Your host is Hermit@~a." VERSION)) sender)
-  (send-msg (list ":localhost" RPL_CREATED "ctas" "This server was created once upon a time.") sender)
-  (send-msg (list ":localhost" RPL_MYINFO "ctas"  "-") sender))
+  (send-msg (list "localhost" RPL_WELCOME "ctas" "Welcome to the Racket IRC server ctas!ctas@localhost.") sender)
+  (send-msg (list "localhost" RPL_YOURHOST "ctas" (format "Your host is Hermit@~a." VERSION)) sender)
+  (send-msg (list "localhost" RPL_CREATED "ctas" "This server was created once upon a time.") sender)
+  (send-msg (list "localhost" RPL_MYINFO "ctas"  "-") sender))
+
+(define (JOIN sender msg)
+   (let* ([chans (string-split (second msg) ",")]
+          [keys  (if (= (length msg) 3) (string-split (third  msg)) #f)])
+
+     (for-each (λ (chan-name)
+                  ; Create channel, if it does not exist.
+                  (when (not (hash-has-key? channels chan-name))
+                    (hash-set! channels chan-name (new channel% [init-name chan-name])))
+
+                  (let ([target-chan (hash-ref channels chan-name)])
+                      ; Join channel.
+                      (set-field! users target-chan (append (get-field users target-chan) (list sender)))
+
+                      ; Broadcast channel join to all users in channel.
+                      (broadcast-msg-to-chan
+                        (list (get-field nick sender) "join" chan-name)
+                        chan-name)
+                      )) chans)))
 
 
-(define (PART) 'not-implemented)
+     ; RPL_TOPIC
+     ; RPL_NAMEREPLY
 
-(define (PRIVMSG) 'not-implemented)
+(define (PART sender msg)
+   (let ([channel-names (string-split (second msg) ",")])
+     (for-each (λ (channel-name)
+                  (let* ([channel       (hash-ref channels channel-name)]
+                         [channel-users (get-field users channel)])
+                    (set-field! users channel (remove sender channel-users eq?))
+                    (broadcast-msg-to-chan (list (get-field nick sender) "PART") channel-name)))
+               channel-names)))
+
+(define (PRIVMSG sender msg)
+  (let ([sender-nick  (get-field nick sender)]
+        [channel-name (second msg)]
+        [text         (third  msg)])
+    (broadcast-msg-to-chan
+      (list sender-nick "PRIVMSG" channel-name text)
+      channel-name #:exclude-users (list sender-nick))))
 
 (provide parse-msg
          msg-to-str)
