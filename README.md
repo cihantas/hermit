@@ -29,7 +29,6 @@ An IRC (RFC 1459) server written in Racket.
 | TRACE    | ❌ |
 | ADMIN    | ✅ | Not implemented.
 | INFO     | ✅ | Command not validated; Parameter [<server>] not supported.
-
 | PRIVMSG  | ✅ |
 | NOTICE   | ✅ | Not implemented.
 | WHO      | ❓ |
