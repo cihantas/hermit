@@ -21,7 +21,7 @@ An IRC (RFC 1459) server written in Racket.
 | LIST     | ✅ | Not implemented.
 | INVITE   | ❓ |
 | KICK     | ✅ | Not implemented.
-| VERSION  | ✅ | Parameter [<server>] not supported.
+| VERSION  | ✅ | Parameter [\<server\>] not supported.
 | STATS    | ❓ |
 | LINKS    | ❌ |
 | TIME     | ❌ |
