@@ -3,6 +3,7 @@
 #lang racket
 
 (require racket/tcp
+         racket/date
          (for-syntax syntax/parse))
 
 ; Add syntax for definition of multiple variables in a single expression.
@@ -16,15 +17,20 @@
 
 (define*
   SERVER-NAME "Racket"
-  VERSION "1.0.0a"
+  SERVER-VERSION "1.0.0a"
   PORT (or (getenv "PORT") 6667)
-  PASS "secret")
+  PASS "secret"
+  STARTED_AT (seconds->date (current-seconds)))
 
 (define*
   RPL_WELCOME "001"
   RPL_YOURHOST "002"
   RPL_CREATED "003"
   RPL_MYINFO "004"
+  RPL_NOTOPIC "331"
+  RPL_TOPIC "332"
+  RPL_VERSION "351"
+  RPL_INFO "371"
 
   ERR_UNKNOWNCOMMAND "421"
   ERR_ERRONEUSNICKNAME "432"
@@ -35,7 +41,8 @@
   (class object%
     (init init-name)
     (super-new)
-    (field [users (list)])))
+    (field [users (list)])
+    (field [topic ""])))
 
 ; A user encapsul
 (define user%
@@ -104,12 +111,15 @@
     (thread loop)))
 
 (define (dispatch-msg msg sender)
-  (let ([cmd (first msg)])
+  (let ([cmd (string-upcase (first msg))])
     (case cmd
       [("NICK") (NICK sender msg)]
       [("USER") (USER sender msg)]
       [("JOIN") (JOIN sender msg)]
       [("PART") (PART sender msg)]
+      [("VERSION") (VERSION sender msg)]
+      [("TOPIC") (TOPIC sender msg)]
+      [("INFO") (INFO sender msg)]
       [("PRIVMSG") (PRIVMSG sender msg)]
       [("PING") (PING sender msg)])))
 
@@ -170,7 +180,7 @@
 (define (USER sender msg)
   (match-define (list user host server name) (rest msg))
   (send-msg (list "localhost" RPL_WELCOME "ctas" "Welcome to the Racket IRC server ctas!ctas@localhost.") sender)
-  (send-msg (list "localhost" RPL_YOURHOST "ctas" (format "Your host is Hermit@~a." VERSION)) sender)
+  (send-msg (list "localhost" RPL_YOURHOST "ctas" (format "Your host is Hermit@~a." SERVER-VERSION)) sender)
   (send-msg (list "localhost" RPL_CREATED "ctas" "This server was created once upon a time.") sender)
   (send-msg (list "localhost" RPL_MYINFO "ctas"  "-") sender))
 
@@ -191,6 +201,9 @@
                       (broadcast-msg-to-chan
                         (list (get-field nick sender) "join" chan-name)
                         chan-name)
+
+                      (TOPIC sender (list "TOPIC" chan-name))
+
                       )) chans)))
 
 
@@ -213,6 +226,45 @@
     (broadcast-msg-to-chan
       (list sender-nick "PRIVMSG" channel-name text)
       channel-name #:exclude-users (list sender-nick))))
+
+
+(define (INFO sender msg)
+  ; TODO: Validate the server matches ours.
+  (send-msg (list
+              "localhost"
+              RPL_INFO
+              (get-field nick sender)
+              (format "Hermit@~a (https://github.com/cihantas/hermit) - Started ~a"
+                      SERVER-VERSION
+                      (date->string STARTED_AT))
+              ) sender))
+
+(define (VERSION sender msg)
+  ; TODO: Validate the server matches ours.
+  ; TODO: fix space char workaround for prefix
+  (send-msg (list "localhost" RPL_VERSION (get-field nick sender)
+                  (format "Hermit@~a" SERVER-VERSION) "localhost" "") sender))
+
+(define (TOPIC sender msg)
+  ; TODO Check for permissions.
+  (let* ([channel-name (second msg)]
+         [channel (hash-ref channels channel-name)]
+         [channel-topic (get-field topic channel)])
+    (cond
+      ; TODO If user is not on channel reply with ERR_NOTONCHANNEL.
+
+      ; If a topic is given, update it on the channel.
+      [(>= (length msg) 3)
+       (set-field! topic channel (third msg))
+       (send-msg (list (get-field nick sender) "TOPIC" channel-name (third msg)) sender)]
+
+      ; No topic parameter. Channels topic is set. Reply with RPL_TOPIC.
+      [(non-empty-string? channel-topic)
+       (send-msg (list "localhost" RPL_TOPIC (get-field nick sender) channel-name channel-topic) sender)]
+
+      ; No topic parameter. Channels topic is not set. Reply with RPL_NOTOPIC.
+      [else
+       (send-msg (list "localhost" RPL_NOTOPIC (get-field nick sender) channel-name "No topic is set.") sender)])))
 
 (provide parse-msg
          msg-to-str)

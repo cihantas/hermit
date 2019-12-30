@@ -7,7 +7,7 @@ An IRC (RFC 1459) server written in Racket.
 | Command  | Supported | Note |
 | -------- | :-------: | ---- |
 | PASS     | ✅ | Not implemented.
-| NICK     | ✅ | 
+| NICK     | ✅ |
 | USER     | ✅ |
 | SERVER   | ❌ |
 | OPER     | ❓ |
@@ -16,25 +16,26 @@ An IRC (RFC 1459) server written in Racket.
 | JOIN     | ✅ |
 | PART     | ✅ |
 | MODE     | ✅ | Not implemented.
-| TOPIC    | ✅ | Not implemented.
+| TOPIC    | ✅ |
 | NAMES    | ✅ | Not implemented.
 | LIST     | ✅ | Not implemented.
 | INVITE   | ❓ |
 | KICK     | ✅ | Not implemented.
-| VERSION  | ✅ | Not implemented.
+| VERSION  | ✅ | Parameter [<server>] not supported.
 | STATS    | ❓ |
 | LINKS    | ❌ |
 | TIME     | ❌ |
 | CONNECT  | ❌ |
 | TRACE    | ❌ |
 | ADMIN    | ✅ | Not implemented.
-| INFO     | ✅ | Not implemented.
+| INFO     | ✅ | Command not validated; Parameter [<server>] not supported.
+
 | PRIVMSG  | ✅ |
 | NOTICE   | ✅ | Not implemented.
 | WHO      | ❓ |
 | WHOIS    | ❓ |
 | WHOWAS   | ❌ |
 | KILL     | ❓ |
-| PING     | ✅ | 
+| PING     | ✅ |
 | PONG     | ✅ | Not implemented.
 | ERROR    | ❌ |
