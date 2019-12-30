@@ -4,8 +4,8 @@ An IRC (RFC 1459) server written in Racket.
 
 ## Commands
 
-| Command  | Supported |
-| -------- | :-------: |
+| Command  | Supported | Note |
+| -------- | :-------: | ---- |
 | PASS     | ✅ |
 | NICK     | ✅ |
 | USER     | ✅ |
@@ -15,6 +15,26 @@ An IRC (RFC 1459) server written in Racket.
 | SQUIT    | ❌ |
 | JOIN     | ✅ |
 | PART     | ✅ |
-| TRACE    | ❌ |
+| MODE     | ✅ |
+| TOPIC    | ✅ |
+| NAMES    | ✅ |
+| LIST     | ✅ |
+| INVITE   | ❓ |
+| KICK     | ✅ |
+| VERSION  | ✅ |
+| STATS    | ❓ |
 | LINKS    | ❌ |
 | TIME     | ❌ |
+| CONNECT  | ❌ |
+| TRACE    | ❌ |
+| ADMIN    | ✅ |
+| INFO     | ✅ |
+| PRIVMSG  | ✅ |
+| NOTICE   | ✅ |
+| WHO      | ❓ |
+| WHOIS    | ❓ |
+| WHOWAS   | ❌ |
+| KILL     | ❓ |
+| PING     | ✅ |
+| PONG     | ✅ |
+| ERROR    | ❌ |
