@@ -20,7 +20,8 @@
   SERVER-VERSION "1.0.0a"
   PORT (or (getenv "PORT") 6667)
   PASS "secret"
-  STARTED_AT (seconds->date (current-seconds)))
+  STARTED_AT (seconds->date (current-seconds))
+  DEFAULT_QUIT_MSG "Vanishes from the main narrative.")
 
 (define*
   RPL_WELCOME "001"
@@ -52,7 +53,8 @@
     (field [op output-port]
            [nick "*"]
            [username #f]
-           [realname #f])))
+           [realname #f]
+           [channels (list)])))
 
 (define channels (make-hash))
 (define users (list))
@@ -165,6 +167,14 @@
   (send-msg (list "PONG" (second msg) "localhost") sender))
 
 (define (PONG) "Not implemented.")
+
+(define (QUIT sender msg)
+  ; If a "Quit Message" is given, this will be sent instead of the default
+  ; message, the nickname.
+  ; TODO: Remove user from joined channels.
+
+  (let ([quit-msg (if (>= (length msg 2)) (second msg) DEFAULT_QUIT_MSG)])
+    (broadcast)))
 
 (define (NICK sender msg)
   (define-values (nick) (second msg))
