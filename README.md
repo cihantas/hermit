@@ -38,3 +38,12 @@ An IRC (RFC 1459) server written in Racket.
 | PING     | ✅ |
 | PONG     | ✅ | Not implemented.
 | ERROR    | ❌ |
+
+## Replies 
+| Code | Name                | Supported | Note |
+| ---- | --------------------| :-------: | ---- |
+| 251  | RPL_LUSERCLIENT     | ✅ | Not implemented.
+| 252  | RPL_LUSEROP         | ✅ | Not implemented.
+| 253  | RPL_LUSERUNKNOWN    | ✅ | Not implemented.
+| 254  | RPL_LUSERCHANNELS   | ✅ | Not implemented.
+| 255  | RPL_LUSERME         | ✅ | Not implemented.
